@@ -1,0 +1,1 @@
+![Infrastructure Design](architecture_pic.png)
