@@ -1,0 +1,5 @@
+The infrastructure follows the design plan shown below.
+
+Lind to Cloudwatch Dashboard: https://cloudwatch.amazonaws.com/dashboard.html?dashboard=Team-Diamonds-Dashboard&context=eyJSIjoidXMtZWFzdC0xIiwiRCI6ImN3LWRiLTM0NjIyNTQ2NjA2NiIsIlUiOiJ1cy1lYXN0LTFfMEpibXZ6ZkZuIiwiQyI6IjYxcWYzMzhhNHNxb21vMmIyaHMyNzdpMGc2IiwiSSI6InVzLWVhc3QtMTpjNzM1ZDQ0MS01Mzc2LTQwMDQtOGY0ZS1hMDVmMTc4NzNhOGIiLCJNIjoiUHVibGljIn0=
+
+![Infrastructure Design](architecture_pic.png)
