@@ -26,8 +26,9 @@ resource "aws_cognito_user_pool_client" "web_client" {
   allowed_oauth_scopes                 = ["openid", "email", "profile"]
   supported_identity_providers         = ["COGNITO"]
 
-  callback_urls = ["http://localhost:3000/callback.html"]
-  logout_urls   = ["http://localhost:3000/"]
+  callback_urls        = ["http://localhost:3000/callback"]
+  logout_urls          = ["http://localhost:3000/"]
+  default_redirect_uri = "http://localhost:3000/callback"
 }
 
 resource "aws_cognito_user_pool_domain" "main" {
