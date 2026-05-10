@@ -31,6 +31,6 @@ resource "aws_cognito_user_pool_client" "web_client" {
 }
 
 resource "aws_cognito_user_pool_domain" "main" {
-  domain       = "myteam-app"
+  domain       = "team-diamonds"
   user_pool_id = aws_cognito_user_pool.main_pool.id
 }
