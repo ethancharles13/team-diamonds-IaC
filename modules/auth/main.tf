@@ -12,12 +12,6 @@ resource "aws_cognito_user_pool" "main_pool" {
     require_symbols   = true
     require_uppercase = true
   }
-  schema {
-    name                = "email"
-    attribute_data_type = "String"
-    required            = true
-    mutable             = true
-  }
 }
 
 resource "aws_cognito_user_pool_client" "web_client" {
