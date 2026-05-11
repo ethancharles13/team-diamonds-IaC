@@ -40,8 +40,12 @@ module "telemetry" {
   aws_region       = "us-east-2"
 }
 
+module "frontend" {
+  source = "./modules/frontend"
+}
+
 #output website endpoint
 output "website_endpoint" {
   description = "The URL for visiting website."
-  value       = module.compute.website_endpoint
+  value       = module.frontend.website_url
 }

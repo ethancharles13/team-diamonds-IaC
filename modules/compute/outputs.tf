@@ -17,8 +17,3 @@ output "action_lambda_function_name" {
   description = "The name of the Action Lambda"
   value       = aws_lambda_function.action_lambda.function_name
 }
-
-output "website_endpoint" {
-  description = "The URL for visiting website."
-  value       = aws_s3_bucket_website_configuration.team_diamonds_frontend.website_endpoint
-}
