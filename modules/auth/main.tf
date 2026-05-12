@@ -36,7 +36,7 @@ resource "aws_cognito_user_pool_domain" "main" {
 resource "aws_ssm_parameter" "cognito_authority_url" {
   name  = "/frontend/cognito/authority_url"
   type  = "String"
-  value = "https://${aws_cognito_user_pool_domain.main.domain}.auth-us-east-2.amazoncognito.com"
+  value = "https://${aws_cognito_user_pool_domain.main.domain}.auth.us-east-2.amazoncognito.com"
 }
 
 # (Keep the client ID parameter if your frontend still needs it)
