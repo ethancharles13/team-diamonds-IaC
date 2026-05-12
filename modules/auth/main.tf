@@ -32,3 +32,16 @@ resource "aws_cognito_user_pool_domain" "main" {
   domain       = "team-diamonds"
   user_pool_id = aws_cognito_user_pool.main_pool.id
 }
+
+resource "aws_ssm_parameter" "cognito_authority_url" {
+  name = "/frontend/cognito/authority_url"
+  type = "String"
+  value = "https://${aws_cognito_user_pool.main_pool.endpoint}"
+}
+
+# (Keep the client ID parameter if your frontend still needs it)
+resource "aws_ssm_parameter" "cognito_client_id" {
+  name  = "/frontend/cognito/client_id"
+  type  = "String"
+  value = aws_cognito_user_pool_client.web_client.id
+}

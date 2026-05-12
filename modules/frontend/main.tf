@@ -117,3 +117,9 @@ resource "aws_ssm_parameter" "cloudfront_distribution_id" {
   type  = "String"
   value = aws_cloudfront_distribution.frontend_distribution.id
 }
+
+resource "aws_ssm_parameter" "website_url" {
+  name  = "website-url"
+  type  = "String"
+  value = "https://${aws_cloudfront_distribution.frontend_distribution.domain_name}"
+}
