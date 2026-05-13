@@ -247,6 +247,28 @@ resource "aws_api_gateway_integration" "proxy_lambda_integration" {
   uri                     = var.action_lambda_invoke_arn
 }
 
+# Add CORS headers to all 4xx errors (like 401 Unauthorized and 403 Forbidden)
+resource "aws_api_gateway_gateway_response" "cors_4xx" {
+  rest_api_id   = aws_api_gateway_rest_api.team_diamonds_api.id
+  response_type = "DEFAULT_4XX"
+
+  response_parameters = {
+    "gatewayresponse.header.Access-Control-Allow-Origin"  = "'*'"
+    "gatewayresponse.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+  }
+}
+
+# Add CORS headers to all 5xx errors (Lambda crashes, timeouts, etc.)
+resource "aws_api_gateway_gateway_response" "cors_5xx" {
+  rest_api_id   = aws_api_gateway_rest_api.team_diamonds_api.id
+  response_type = "DEFAULT_5XX"
+
+  response_parameters = {
+    "gatewayresponse.header.Access-Control-Allow-Origin"  = "'*'"
+    "gatewayresponse.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+  }
+}
+
 resource "aws_ssm_parameter" "api_gateway_url" {
   name        = "team-diamonds-api-url"
   description = "The invoke URL for the Team Diamonds API Gateway"
