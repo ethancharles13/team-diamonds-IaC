@@ -2,10 +2,9 @@
 
 resource "aws_api_gateway_rest_api" "team_diamonds_api" {
   name        = "team-diamonds-api"
-  description = "API Gateway for team-diamonds project."
+  description = "Monolithic API Gateway for team-diamonds project."
 }
 
-# ensures that user requests only reach lambda if they have a valid Cognito JWT
 resource "aws_api_gateway_authorizer" "cognito_auth" {
   name          = "cognito-authorizer"
   type          = "COGNITO_USER_POOLS"
@@ -13,77 +12,6 @@ resource "aws_api_gateway_authorizer" "cognito_auth" {
   provider_arns = [var.cognito_user_pool_arn]
 }
 
-
-# /OAUTH Endpont
-resource "aws_api_gateway_resource" "oauth_resource" {
-  rest_api_id = aws_api_gateway_rest_api.team_diamonds_api.id
-  parent_id   = aws_api_gateway_rest_api.team_diamonds_api.root_resource_id
-  path_part   = "oauth"
-}
-
-# POST Method acts as Proxy to Lambda
-resource "aws_api_gateway_method" "oauth_method" {
-  rest_api_id   = aws_api_gateway_rest_api.team_diamonds_api.id
-  resource_id   = aws_api_gateway_resource.oauth_resource.id
-  http_method   = "POST"
-  authorization = "COGNITO_USER_POOLS"
-  authorizer_id = aws_api_gateway_authorizer.cognito_auth.id
-}
-
-resource "aws_api_gateway_integration" "oauth_lambda_integration" {
-  rest_api_id             = aws_api_gateway_rest_api.team_diamonds_api.id
-  resource_id             = aws_api_gateway_resource.oauth_resource.id
-  http_method             = aws_api_gateway_method.oauth_method.http_method
-  integration_http_method = "POST"
-  type                    = "AWS_PROXY"
-  uri                     = var.oauth_lambda_invoke_arn
-}
-
-# OPTIONS Method for CORS Preflight
-resource "aws_api_gateway_method" "oauth_options" {
-  rest_api_id   = aws_api_gateway_rest_api.team_diamonds_api.id
-  resource_id   = aws_api_gateway_resource.oauth_resource.id
-  http_method   = "OPTIONS"
-  authorization = "NONE"
-}
-
-resource "aws_api_gateway_integration" "oauth_options_mock" {
-  rest_api_id = aws_api_gateway_rest_api.team_diamonds_api.id
-  resource_id = aws_api_gateway_resource.oauth_resource.id
-  http_method = aws_api_gateway_method.oauth_options.http_method
-  type        = "MOCK"
-
-  request_templates = {
-    "application/json" = "{\"statusCode\": 200}"
-  }
-}
-
-resource "aws_api_gateway_method_response" "oauth_options_200" {
-  rest_api_id = aws_api_gateway_rest_api.team_diamonds_api.id
-  resource_id = aws_api_gateway_resource.oauth_resource.id
-  http_method = aws_api_gateway_method.oauth_options.http_method
-  status_code = "200"
-
-  response_parameters = {
-    "method.response.header.Access-Control-Allow-Headers" = true
-    "method.response.header.Access-Control-Allow-Methods" = true
-    "method.response.header.Access-Control-Allow-Origin"  = true
-  }
-}
-
-resource "aws_api_gateway_integration_response" "oauth_options_integration_response" {
-  depends_on  = [aws_api_gateway_integration.oauth_options_mock]
-  rest_api_id = aws_api_gateway_rest_api.team_diamonds_api.id
-  resource_id = aws_api_gateway_resource.oauth_resource.id
-  http_method = aws_api_gateway_method.oauth_options.http_method
-  status_code = aws_api_gateway_method_response.oauth_options_200.status_code
-
-  response_parameters = {
-    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-    "method.response.header.Access-Control-Allow-Methods" = "'OPTIONS,POST'"
-    "method.response.header.Access-Control-Allow-Origin"  = "'*'"
-  }
-}
 
 # /ACTIONS ENDPOINT
 
@@ -158,16 +86,32 @@ resource "aws_api_gateway_integration_response" "actions_options_integration_res
 }
 
 
-
-# Lambda permissions
-
-resource "aws_lambda_permission" "apigw_oauth_lambda" {
-  statement_id  = "AllowExecutionFromAPIGateway"
-  action        = "lambda:InvokeFunction"
-  function_name = var.oauth_lambda_function_name
-  principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_api_gateway_rest_api.team_diamonds_api.execution_arn}/*/*"
+# /{proxy+} catches all other routes: /auth/login, /auth/callback, /health,
+# /chat, /chat-relay, /issues, /docs, /redoc, etc.
+resource "aws_api_gateway_resource" "proxy_resource" {
+  rest_api_id = aws_api_gateway_rest_api.team_diamonds_api.id
+  parent_id   = aws_api_gateway_rest_api.team_diamonds_api.root_resource_id
+  path_part   = "{proxy+}"
 }
+
+resource "aws_api_gateway_method" "proxy_method" {
+  rest_api_id   = aws_api_gateway_rest_api.team_diamonds_api.id
+  resource_id   = aws_api_gateway_resource.proxy_resource.id
+  http_method   = "ANY"
+  authorization = "NONE" # No auth — FastAPI handles its own auth internally
+}
+
+resource "aws_api_gateway_integration" "proxy_lambda_integration" {
+  rest_api_id             = aws_api_gateway_rest_api.team_diamonds_api.id
+  resource_id             = aws_api_gateway_resource.proxy_resource.id
+  http_method             = aws_api_gateway_method.proxy_method.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = var.action_lambda_invoke_arn
+}
+
+
+# Lambda permission (single permission covers all routes via wildcard source ARN)
 
 resource "aws_lambda_permission" "apigw_action_lambda" {
   statement_id  = "AllowExecutionFromAPIGateway"
@@ -178,16 +122,39 @@ resource "aws_lambda_permission" "apigw_action_lambda" {
 }
 
 
-# Deployment & Stage
+# Add CORS headers to all 4xx errors (like 401 Unauthorized and 403 Forbidden)
+resource "aws_api_gateway_gateway_response" "cors_4xx" {
+  rest_api_id   = aws_api_gateway_rest_api.team_diamonds_api.id
+  response_type = "DEFAULT_4XX"
 
+  response_parameters = {
+    "gatewayresponse.header.Access-Control-Allow-Origin"  = "'*'"
+    "gatewayresponse.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+  }
+}
+
+# Add CORS headers to all 5xx errors (Lambda crashes, timeouts, etc.)
+resource "aws_api_gateway_gateway_response" "cors_5xx" {
+  rest_api_id   = aws_api_gateway_rest_api.team_diamonds_api.id
+  response_type = "DEFAULT_5XX"
+
+  response_parameters = {
+    "gatewayresponse.header.Access-Control-Allow-Origin"  = "'*'"
+    "gatewayresponse.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+  }
+}
+
+
+# Deployment & Stage
 
 resource "aws_api_gateway_deployment" "team_diamonds_deployment" {
   depends_on = [
-    aws_api_gateway_integration.oauth_lambda_integration,
-    aws_api_gateway_integration_response.oauth_options_integration_response,
     aws_api_gateway_integration.actions_lambda_integration,
     aws_api_gateway_integration_response.actions_options_integration_response,
-    aws_api_gateway_integration.proxy_lambda_integration
+    aws_api_gateway_integration.proxy_lambda_integration,
+    aws_api_gateway_authorizer.cognito_auth,
+    aws_api_gateway_gateway_response.cors_4xx,
+    aws_api_gateway_gateway_response.cors_5xx,
   ]
 
   rest_api_id = aws_api_gateway_rest_api.team_diamonds_api.id
@@ -195,12 +162,6 @@ resource "aws_api_gateway_deployment" "team_diamonds_deployment" {
   # Redeploys when any routing, method, or CORS configuration changes
   triggers = {
     redeployment = sha1(jsonencode([
-      aws_api_gateway_resource.oauth_resource.id,
-      aws_api_gateway_method.oauth_method.id,
-      aws_api_gateway_integration.oauth_lambda_integration.id,
-      aws_api_gateway_method.oauth_options.id,
-      aws_api_gateway_integration.oauth_options_mock.id,
-
       aws_api_gateway_resource.actions_resource.id,
       aws_api_gateway_method.actions_method.id,
       aws_api_gateway_integration.actions_lambda_integration.id,
@@ -227,50 +188,6 @@ resource "aws_api_gateway_stage" "prod_stage" {
   stage_name    = "prod"
 }
 
-# /{proxy+} enables /docs, /redoc, etc.
-resource "aws_api_gateway_resource" "proxy_resource" {
-  rest_api_id = aws_api_gateway_rest_api.team_diamonds_api.id
-  parent_id   = aws_api_gateway_rest_api.team_diamonds_api.root_resource_id
-  path_part   = "{proxy+}"
-}
-
-resource "aws_api_gateway_method" "proxy_method" {
-  rest_api_id   = aws_api_gateway_rest_api.team_diamonds_api.id
-  resource_id   = aws_api_gateway_resource.proxy_resource.id
-  http_method   = "ANY"
-  authorization = "NONE" # No auth so /docs is publicly accessible
-}
-
-resource "aws_api_gateway_integration" "proxy_lambda_integration" {
-  rest_api_id             = aws_api_gateway_rest_api.team_diamonds_api.id
-  resource_id             = aws_api_gateway_resource.proxy_resource.id
-  http_method             = aws_api_gateway_method.proxy_method.http_method
-  integration_http_method = "POST"
-  type                    = "AWS_PROXY"
-  uri                     = var.action_lambda_invoke_arn
-}
-
-# Add CORS headers to all 4xx errors (like 401 Unauthorized and 403 Forbidden)
-resource "aws_api_gateway_gateway_response" "cors_4xx" {
-  rest_api_id   = aws_api_gateway_rest_api.team_diamonds_api.id
-  response_type = "DEFAULT_4XX"
-
-  response_parameters = {
-    "gatewayresponse.header.Access-Control-Allow-Origin"  = "'*'"
-    "gatewayresponse.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-  }
-}
-
-# Add CORS headers to all 5xx errors (Lambda crashes, timeouts, etc.)
-resource "aws_api_gateway_gateway_response" "cors_5xx" {
-  rest_api_id   = aws_api_gateway_rest_api.team_diamonds_api.id
-  response_type = "DEFAULT_5XX"
-
-  response_parameters = {
-    "gatewayresponse.header.Access-Control-Allow-Origin"  = "'*'"
-    "gatewayresponse.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-  }
-}
 
 resource "aws_ssm_parameter" "api_gateway_url" {
   name        = "team-diamonds-api-url"

@@ -7,18 +7,8 @@ variable "cognito_user_pool_arn" {
   type        = string
 }
 
-variable "oauth_lambda_invoke_arn" {
-  description = "The Invoke ARN of the OAuth Lambda function"
-  type        = string
-}
-
 variable "action_lambda_invoke_arn" {
   description = "The Invoke ARN of the Jira/Slack Action Lambda function"
-  type        = string
-}
-
-variable "oauth_lambda_function_name" {
-  description = "The name of the OAuth Lambda function"
   type        = string
 }
 
