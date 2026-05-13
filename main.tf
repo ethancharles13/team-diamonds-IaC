@@ -43,3 +43,8 @@ module "telemetry" {
 module "frontend" {
   source = "./modules/frontend"
 }
+
+output "website_endpoint" {
+  description = "The URL for visiting website."
+  value       = module.frontend.website_url
+}
