@@ -209,7 +209,10 @@ resource "aws_api_gateway_deployment" "team_diamonds_deployment" {
 
       aws_api_gateway_resource.proxy_resource.id,
       aws_api_gateway_method.proxy_method.id,
-      aws_api_gateway_integration.proxy_lambda_integration.id
+      aws_api_gateway_integration.proxy_lambda_integration.id,
+      aws_api_gateway_authorizer.cognito_auth.id,
+      aws_api_gateway_gateway_response.cors_4xx.id,
+      aws_api_gateway_gateway_response.cors_5xx.id,
     ]))
   }
 
