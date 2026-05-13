@@ -53,7 +53,7 @@ resource "aws_iam_role_policy" "oauth_lambda_policy" {
 resource "aws_lambda_function" "oauth_lambda" {
   function_name = "oauth-lambda"
   role          = aws_iam_role.oauth_lambda_role.arn
-  handler       = "main.handler"
+  handler       = "handler.handler"
   runtime       = "python3.12"
   filename      = "${path.module}/dummy_payload.zip"
 
@@ -122,7 +122,7 @@ resource "aws_iam_role_policy" "action_lambda_policy" {
 resource "aws_lambda_function" "action_lambda" {
   function_name = "action-lambda"
   role          = aws_iam_role.action_lambda_role.arn
-  handler       = "main.handler" # ToDO: Update to match your python entrypoint
+  handler       = "handler.handler"
   runtime       = "python3.12"
   filename      = "${path.module}/dummy_payload.zip"
 
